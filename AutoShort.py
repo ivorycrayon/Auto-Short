@@ -17,6 +17,8 @@ url = "https://cpangprodweb.highjumpcloud.com/core/Default.html#"
 driver.get(url)
 driver.implicitly_wait(30)
 
+start_time = time.time()
+
 login = "WCHAFFIN"
 password = "QWE123"
 
@@ -35,9 +37,12 @@ shortandcancel_path = [
 "/html/body/header/div[2]/div[2]/ul/li[1]/a" ]
 
 table_path = 'div.k-grid-content.k-auto-scrollable > table > tbody'
+full_table_path = 'body > div.page-wrap > div.content-wrap > div > hj-flex-container > div > hj-flex-grow > div > hj-flex-scroll > div > div:nth-child(2) > div:nth-child(3) > div.hj-spaces-page-template-wrap > hj-flex-container > div > hj-flex-grow > div > div > hj-grid > div.hj-grid-container.hj-grid-full-height-container > div > div.k-grid-content.k-auto-scrollable > table'
 header_table_path = 'div.k-grid-header > div > table'
+full_header_table_path = 'body > div.page-wrap > div.content-wrap > div > hj-flex-container > div > hj-flex-grow > div > hj-flex-scroll > div > div:nth-child(4) > div:nth-child(2) > div.hj-spaces-page-template-wrap > hj-flex-container > div > hj-flex-grow > div > div > hj-grid > div.hj-grid-container.hj-grid-full-height-container > div > div.k-grid-header > div > table'
 back_button_path = "body > div.page-wrap > div.content-wrap > div > hj-flex-container > div > hj-flex-shrink > div > div > div.paging > a:nth-child(1) > span > i.fa.fa-angle-left.fa-stack-1x"
 save_button_path = "body > header > div.app-bar > div:nth-child(2) > ul > li:nth-child(1) > a"
+export_button_path = "body > header > div.app-bar > div.action-group.supply-chain-advantage > ul > li:nth-child(1) > a > span"
 
 for xpath in login_path:
 	xpath = xpath
@@ -70,13 +75,21 @@ print("...done going to S&C page!")
 col_x = 0
 row_y = 0
 cancelled_filtered = False
+timeout = 90
 
-#print("sleeping 30 seconds")
-#time.sleep(30)
-#print("done sleeping!")
+lines_cancelled = 0
+items_cancelled = 0 
 
 driver.find_element(by=By.CSS_SELECTOR, value='body').click() #don't remember why I did this, also don't think it's necessary but it shall remain 
 print("...body clicked!") 
+
+try:
+	element_present = EC.presence_of_element_located((By.CSS_SELECTOR, table_path))
+	print("...waiting for page to load")
+	WebDriverWait(driver, timeout).until(element_present)
+except TimeoutException:
+    print("Timed out waiting for page to load")
+
 shortandcancel_table = driver.find_element(by=By.CSS_SELECTOR, value=table_path)
 print("...short and cancel table found!")
 
@@ -89,16 +102,24 @@ for row in shortandcancel_table.find_elements(by=By.CSS_SELECTOR, value='tr'):
 
 		if col_x == 2 and cell.text != "0":
 			short_orders_link = cell.find_element(by=By.CSS_SELECTOR, value="a")
+
 			short_orders_link.click()
-			time.sleep(10)
+			time.sleep(30)
 			page_sorted = False
+
+			# try:
+			#     element_present = EC.presence_of_element_located((By.CSS_SELECTOR, full_header_table_path))
+			#     print("...waiting for page to load")
+			#     WebDriverWait(driver, timeout).until(element_present)
+			# except TimeoutException:
+			#     print("Timed out waiting for page to load")
 
 
 			if(not page_sorted):
 				header_table = driver.find_elements(by=By.CSS_SELECTOR, value=header_table_path)[1]
 				print("...Header table found!")
 
-				time.sleep(.5)
+				time.sleep(1)
 
 				for row in header_table.find_elements(by=By.CSS_SELECTOR, value='tr'): #this sort is necessary to relieve the bug where HJ only shows part of the table
 					for cell in row.find_elements(by=By.TAG_NAME, value='th'):
@@ -113,13 +134,13 @@ for row in shortandcancel_table.find_elements(by=By.CSS_SELECTOR, value='tr'):
 							finally:
 								pass
 
-							time.sleep(5)
+							time.sleep(10)
 
 			if(not cancelled_filtered):
 				header_table = driver.find_elements(by=By.CSS_SELECTOR, value=header_table_path)[1]
 				print("...Header table found!")
 
-				time.sleep(.5)
+				time.sleep(1)
 
 				for row in header_table.find_elements(by=By.CSS_SELECTOR, value='tr'):
 					for cell in row.find_elements(by=By.TAG_NAME, value='th'):
@@ -147,7 +168,15 @@ for row in shortandcancel_table.find_elements(by=By.CSS_SELECTOR, value='tr'):
 
 									#at this point we're inside the oldest day, and filtered - need to check list again
 			if(not cancelled_filtered):
-				time.sleep(5)
+				#time.sleep(10)
+
+				try:
+					print("...waiting for page to load")
+					element_clickable = EC.element_to_be_clickable((By.CSS_SELECTOR, export_button_path)) #hanging here atm
+					WebDriverWait(driver, timeout).until(element_clickable)
+				except TimeoutException:
+					print("Timed out waiting for page to load")
+
 			cancelled_filtered = True
 			
 			#need to click to sort to get full tables
@@ -161,9 +190,9 @@ for row in shortandcancel_table.find_elements(by=By.CSS_SELECTOR, value='tr'):
 
 				for cell in row.find_elements(by=By.TAG_NAME, value='td'):
 					if col_index == 1 and row.find_elements(by=By.TAG_NAME, value='td')[3].text == "Cancelled":
-						time.sleep(.5)
+						time.sleep(1)
 						cell.click()
-						time.sleep(.5)
+						time.sleep(1)
 
 
 						order_table = driver.find_elements(by=By.CSS_SELECTOR, value=table_path)[2]
@@ -188,7 +217,7 @@ for row in shortandcancel_table.find_elements(by=By.CSS_SELECTOR, value='tr'):
 								print("...short found!")
 
 							
-								cancel_request.click()
+								#cancel_request.click()
 								
 								action = ActionChains(driver)
 								action.double_click(cancel_request).perform()
@@ -200,10 +229,15 @@ for row in shortandcancel_table.find_elements(by=By.CSS_SELECTOR, value='tr'):
 
 								save_button.click()
 								print("...Line shorted!")
+								lines_cancelled += 1
+								items_cancelled += int(order_qty) - int(short_qty)
 
-								time.sleep(.5)
+								print("Total lines cancelled: ", lines_cancelled)
+								print("Total items cancelled: ", items_cancelled)
 
-						time.sleep(1)
+								time.sleep(1.5)
+
+						time.sleep(2)
 						back_button = driver.find_element(by=By.CSS_SELECTOR, value=back_button_path)
 						back_button.click()
 
@@ -216,11 +250,11 @@ for row in shortandcancel_table.find_elements(by=By.CSS_SELECTOR, value='tr'):
 
 			#short logic goes here
 
-			time.sleep(.5)
+			time.sleep(1)
 			back_button = driver.find_element(by=By.CSS_SELECTOR, value=back_button_path)
 			back_button.click()
 			print("...Going back a page!")
-			time.sleep(.5)
+			time.sleep(1)
 
 		col_x += 1
 
@@ -229,7 +263,19 @@ for row in shortandcancel_table.find_elements(by=By.CSS_SELECTOR, value='tr'):
 
 	row_y += 1
 
+print("Total lines cancelled: ", lines_cancelled)
+print("Total items cancelled: ", items_cancelled)
 
-#body > header > div.app-bar > div:nth-child(2) > ul > li:nth-child(1) > a
-#before - body > div.page-wrap > div.content-wrap > div > hj-flex-container > div > hj-flex-grow > div > hj-flex-scroll > div > div:nth-child(2) > div:nth-child(4) > div.hj-spaces-page-template-wrap > hj-flex-container > div > hj-flex-grow > div > div > hj-grid > div.hj-grid-container.hj-grid-full-height-container > div > div.k-grid-content.k-auto-scrollable > table > tbody > tr:nth-child(4) > td:nth-child(7)
-#after  - body > div.page-wrap > div.content-wrap > div > hj-flex-container > div > hj-flex-grow > div > hj-flex-scroll > div > div:nth-child(2) > div:nth-child(4) > div.hj-spaces-page-template-wrap > hj-flex-container > div > hj-flex-grow > div > div > hj-grid > div.hj-grid-container.hj-grid-full-height-container > div > div.k-grid-content.k-auto-scrollable > table > tbody > tr:nth-child(4) > td:nth-child(7)
+end_time = time.time()
+
+elapsed_time = round((end_time - start_time)/60.0, 2)
+print("\nIt took ", elapsed_time, " minutes to run the script")
+lines_per_hour = round(float(lines_cancelled) / elapsed_time, 2)
+print("That's ", lines_per_hour, " lines per minute")
+
+#loads after clicking S&C, after clicking each day, after sort, after filter
+#need to rework using wait.until - this is trickier than i thought... speed is not that mcuch of a concern, time.sleep is fine for the most part
+#need to handle more than 100, go to next page - or not? just run it twice lmfao
+#need to handle error message pop ups (in a wave) - haven't run into this yet, might not be worth doing as long as waves are not allocated.
+
+
